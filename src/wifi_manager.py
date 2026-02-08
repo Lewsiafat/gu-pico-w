@@ -5,6 +5,7 @@ Handles connection lifecycles, retries, and web-based provisioning.
 import network
 import uasyncio as asyncio
 import time
+
 from config_manager import ConfigManager
 from dns_server import DNSServer
 from web_server import WebServer
@@ -177,7 +178,7 @@ class WiFiManager:
         self._stop_ap_services()
 
         self._log.info(f"Connecting to '{self._target_ssid}/{self._target_password}' (attempt {self._retry_count + 1}/{self._config.max_retries})")
-        self.wlan.connect(self._target_ssid, self._target_password)
+        self.wlan.connect(self._target_ssid, self._target_password, channel=11)
 
         start_time = time.time()
         while (time.time() - start_time) < self._config.connect_timeout:

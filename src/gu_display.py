@@ -210,3 +210,87 @@ class GUDisplay:
             self._gu.adjust_brightness(0.02)
         if self._gu.is_pressed(GalacticUnicorn.SWITCH_BRIGHTNESS_DOWN):
             self._gu.adjust_brightness(-0.02)
+
+    async def show_clock(self, utc_offset: int = 8):
+        """
+        Display time and date with UTC offset (horizontal layout).
+
+        Args:
+            utc_offset: Hours offset from UTC (default: +8 for Taiwan).
+        """
+        import machine
+        import time
+
+        self._running = True
+        rtc = machine.RTC()
+
+        while self._running:
+            # Get RTC time and apply offset
+            year, month, day, _, hour, minute, second, _ = rtc.datetime()
+
+            # Apply UTC offset
+            hour = (hour + utc_offset) % 24
+
+            # Format strings (no leading zeros for date)
+            time_str = "{:02}:{:02}:{:02}".format(hour, minute, second)
+            date_str = "{}/{}".format(month, day)
+
+            # Combine for horizontal layout
+            display_str = "{} {}".format(time_str, date_str)
+
+            # Clear display
+            self._graphics.set_pen(self._black)
+            self._graphics.clear()
+
+            # Draw centered text
+            text_w = self._graphics.measure_text(display_str, 1)
+            text_x = (WIDTH - text_w) // 2
+            self._draw_outlined_text(display_str, text_x, 2, 
+                                     self._cyan, self._black, 1)
+
+            self._gu.update(self._graphics)
+            await asyncio.sleep(1)
+
+    async def show_weather(self, temp: float, status: str, 
+                           high: float, low: float):
+        """
+        Display weather information.
+
+        Args:
+            temp: Current temperature in Celsius.
+            status: Weather status text (e.g., "Sunny").
+            high: Today's high temperature.
+            low: Today's low temperature.
+        """
+        self._running = True
+
+        # Format strings
+        temp_str = "{:.0f}C".format(temp)
+        hilo_str = "H{:.0f} L{:.0f}".format(high, low)
+
+        # Clear display
+        self._graphics.set_pen(self._black)
+        self._graphics.clear()
+
+        # Layout: temp on left, status center, hi/lo right
+        # Row 1: temp + status
+        self._draw_outlined_text(temp_str, 1, 0, 
+                                 self._yellow, self._black, 1)
+
+        status_w = self._graphics.measure_text(status, 1)
+        status_x = (WIDTH - status_w) // 2
+        self._draw_outlined_text(status, status_x, 0, 
+                                 self._white, self._black, 1)
+
+        # Row 2: hi/lo centered
+        hilo_w = self._graphics.measure_text(hilo_str, 1)
+        hilo_x = (WIDTH - hilo_w) // 2
+        self._draw_outlined_text(hilo_str, hilo_x, 6, 
+                                 self._green, self._black, 1)
+
+        self._gu.update(self._graphics)
+
+        # Keep display on until stopped
+        while self._running:
+            await asyncio.sleep(1)
+

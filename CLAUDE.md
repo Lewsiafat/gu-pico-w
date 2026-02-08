@@ -1,207 +1,139 @@
-# CLAUDE.md
+# CLAUDE.md - Developer Reference
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance for AI assistants and developers working on this codebase.
 
 ## Project Overview
 
-Picore-W is a MicroPython infrastructure library for **Raspberry Pi Pico 2 W (RP2350)** and **Raspberry Pi Pico W (RP2040)**. It implements a resilient WiFi State Machine that manages network connection lifecycle with automatic recovery and AP-mode provisioning.
-
-## Development Environment
-
-This is a MicroPython project - no traditional build system exists. Code is deployed directly to hardware.
-
-**Required Tools:**
-- VS Code with MicroPico extension (or `mpremote` CLI)
-- MicroPython firmware on target Pico device
-
-**Deployment:**
-- Upload all files from `src/` to the root of the Pico device
-- The `templates/` folder must be included for provisioning UI
-
-## Code Style
-
-Follow the Google Python Style Guide:
-- **Linting:** `pylint`
-- **Line length:** 80 characters max
-- **Indentation:** 4 spaces (never tabs)
-- **Naming:** `snake_case` for functions/variables, `PascalCase` for classes, `ALL_CAPS` for constants
-- **Type annotations:** Encouraged for public APIs
-- **Docstrings:** Triple double quotes, include `Args:`, `Returns:`, `Raises:` sections
+**gu-pico** is a MicroPython application for the **Pimoroni Galactic Unicorn** (53x11 RGB LED matrix) running on Raspberry Pi Pico W. It features WiFi provisioning via captive portal and displays clock/weather information.
 
 ## Architecture
 
-### Core State Machine
-
-The WiFi lifecycle is managed through 5 states in `src/wifi_manager.py`:
-
-| State | Value | Description |
-|-------|-------|-------------|
-| STATE_IDLE | 0 | Initial/waiting state |
-| STATE_CONNECTING | 1 | Attempting WiFi connection |
-| STATE_CONNECTED | 2 | Connected with IP assigned |
-| STATE_FAIL | 3 | Failed, cooling down before retry |
-| STATE_AP_MODE | 4 | Provisioning hotspot active |
-
-### Key Files
-
-- `src/wifi_manager.py` - Core state machine, WiFi lifecycle, and event system
-- `src/provisioning.py` - Web-based WiFi provisioning handler (routes, templates, form processing)
-- `src/config_manager.py` - Versioned JSON persistence with automatic migration
-- `src/web_server.py` - Async HTTP server for provisioning UI
-- `src/dns_server.py` - Captive portal DNS server
-- `src/logger.py` - Lightweight logging with global and per-module level control
-- `src/config.py` - Configuration class with runtime override support
-- `src/constants.py` - `WiFiState` class with state definitions and utilities
-
-### Design Principles
-
-- **Async-First:** All network operations use `uasyncio`, non-blocking execution
-- **Pure MicroPython:** No external dependencies, only built-in modules (`network`, `uasyncio`, `usocket`, `json`, `machine`)
-- **Resilience Over Features:** Every network state must be handled gracefully with auto-recovery
-- **Hardware-Aware:** Designed for RP2350/RP2040 memory and power constraints
-
-### Logging System
-
-The project uses a lightweight logging system (`src/logger.py`) with configurable levels:
-
-```python
-from logger import Logger, LogLevel
-
-log = Logger("MyModule")
-log.debug("Verbose details")    # [DEBUG] MyModule: ...
-log.info("Normal operation")    # [INFO] MyModule: ...
-log.warning("Potential issue")  # [WARN] MyModule: ...
-log.error("Failure occurred")   # [ERROR] MyModule: ...
-
-# Change global log level
-Logger.set_level(LogLevel.DEBUG)  # Show all messages
-Logger.set_level(LogLevel.ERROR)  # Only show errors
-
-# Module-specific level (overrides global for that module)
-Logger.set_module_level("WiFiManager", LogLevel.DEBUG)
-Logger.set_module_level("WebServer", LogLevel.ERROR)
+```
+src/
+├── main.py              # Basic entry point (for standalone WiFi testing)
+├── gu_main.py           # Full application entry point with display
+├── wifi_manager.py      # WiFi state machine (core networking)
+├── gu_display.py        # Display driver (scrolling text, status screens)
+├── weather_api.py       # Open-Meteo weather API client
+├── config.py            # WiFiConfig class with connection parameters
+├── config_manager.py    # Persistent credential storage
+├── constants.py         # WiFiState enum and legacy constants
+├── dns_server.py        # Captive portal DNS server
+├── web_server.py        # HTTP server for provisioning
+├── provisioning.py      # WiFi credential submission handler
+├── logger.py            # Logging utility
+├── restore.py           # Factory reset helper
+└── templates/           # HTML templates for web UI
 ```
 
-### Event System
+## Key Components
 
-`WiFiManager` supports event-driven programming via callbacks:
+### WiFiManager (`wifi_manager.py`)
+- **State machine** with states: `IDLE`, `CONNECTING`, `CONNECTED`, `FAIL`, `AP_MODE`
+- **Event-driven**: Use `wm.on('connected', callback)` for state notifications
+- **Auto-provisioning**: Falls back to AP mode after failed connections
+- **Dependency injection**: Accepts custom DNSServer/WebServer instances
 
+### GUDisplay (`gu_display.py`)
+- Wraps `GalacticUnicorn` and `PicoGraphics`
+- Methods: `show_connecting()`, `show_ap_mode()`, `show_connected()`, `show_clock()`, `show_weather()`
+- All display methods are `async` for non-blocking operation
+
+### GUApplication (`gu_main.py`)
+- Coordinates WiFiManager, GUDisplay, and WeatherAPI
+- Auto-rotates between clock and weather screens (10s intervals)
+- Button A/B for manual screen switching
+
+### WeatherAPI (`weather_api.py`)
+- Uses Open-Meteo API (free, no key required)
+- Default location: Taipei (25.0330, 121.5654)
+- Returns: `{temp, status, high, low, code}`
+
+## Development Patterns
+
+### Async/Await
+All long-running operations use `uasyncio`:
 ```python
-wm = WiFiManager()
-
-def on_connected(ip):
-    print(f"Connected: {ip}")
-
-def on_state_change(old, new):
-    print(f"State: {old} -> {new}")
-
-wm.on("connected", on_connected)
-wm.on("state_change", on_state_change)
-wm.off("connected", on_connected)  # Remove listener
+import uasyncio as asyncio
+await asyncio.sleep(1)
+asyncio.create_task(my_coroutine())
 ```
 
-Available events:
-- `connected(ip_address)` - WiFi connection established
-- `disconnected()` - WiFi connection lost
-- `state_change(old_state, new_state)` - Any state transition
-- `ap_mode_started(ap_ssid)` - AP mode activated
-- `connection_failed(retry_count)` - Entered FAIL state
-
-### Display Integration
-
-Retrieve AP credentials for external displays (OLED, LCD):
-
+### Event Handling
+WiFiManager emits events:
 ```python
-# Get AP config for display
-ssid, password, ip = wm.get_ap_config()
-
-# Check if in AP mode
-if wm.is_ap_mode():
-    display.text(f"SSID: {ssid}", 0, 0)
-    display.text(f"Pass: {password}", 0, 16)
+wm.on('connected', lambda ip: print(f"Connected: {ip}"))
+wm.on('ap_mode_started', lambda ssid: print(f"AP: {ssid}"))
+wm.on('state_change', lambda old, new: ...)
 ```
 
-### Runtime Configuration
-
-`WiFiManager` accepts configuration parameters at construction:
-
+### Display Updates
+Always use `gu.update(graphics)` after drawing:
 ```python
-# Override specific settings
-wm = WiFiManager(
-    max_retries=10,
-    connect_timeout=20,
-    ap_ssid="MyDevice-Setup",
-    ap_password="SecurePass!"
-)
-
-# Or pass a WiFiConfig instance
-from config import WiFiConfig
-cfg = WiFiConfig(max_retries=10, ap_ssid="Custom")
-wm = WiFiManager(config=cfg)
+graphics.set_pen(BLACK)
+graphics.clear()
+graphics.set_pen(WHITE)
+graphics.text("Hello", x, y, -1, 1)
+gu.update(graphics)
 ```
 
-### Dependency Injection
+## Configuration
 
-`WiFiManager` supports dependency injection for testing and customization:
+### WiFiConfig Defaults (`config.py`)
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `MAX_RETRIES` | 5 | Connection attempts before failure |
+| `CONNECT_TIMEOUT` | 15 | Seconds per connection attempt |
+| `AP_SSID` | "Picore-W-Setup" | Provisioning hotspot name |
+| `AP_PASSWORD` | "12345678" | Provisioning hotspot password |
+| `AP_IP` | "192.168.4.1" | Captive portal IP |
 
+### Credential Storage
+Credentials stored in `/config.json` via `ConfigManager`:
 ```python
-# Default usage
-manager = WiFiManager()
-
-# Custom services
-custom_dns = DNSServer("192.168.1.1")
-custom_web = WebServer()
-manager = WiFiManager(dns_server=custom_dns, web_server=custom_web)
-```
-
-### WiFiState Class
-
-State constants are available via the `WiFiState` class:
-
-```python
-from constants import WiFiState
-
-state = WiFiState.CONNECTED
-name = WiFiState.get_name(state)  # "CONNECTED"
-valid = WiFiState.is_valid(state)  # True
-all_states = WiFiState.all_states()  # [0, 1, 2, 3, 4]
-```
-
-### Config Versioning
-
-`ConfigManager` uses versioned config files for forward compatibility:
-
-```python
-from config_manager import ConfigManager
-
-# Get WiFi credentials (handles migration automatically)
+ConfigManager.save_wifi_credentials(ssid, password)
 ssid, password = ConfigManager.get_wifi_credentials()
-
-# Check config version
-version = ConfigManager.get_version()  # Returns 2 for current format
 ```
 
-## Project Guidelines
+## Hardware Reference
 
-- **No testing in production code:** Test files are kept separate
-- **Minimalist documentation:** Use clear naming; comments only for complex logic or hardware workarounds
-- **All source code in `src/`:** Maintain flat, intuitive directory structure
+### Galactic Unicorn
+- **Display**: 53×11 RGB LEDs
+- **Buttons**: A, B, C, D, Sleep, Volume Up/Down, Brightness Up/Down
+- **Button Constants**: `GalacticUnicorn.SWITCH_A`, `SWITCH_B`, etc.
 
-## Commit Message Format
+### Button Mapping
+| Button | Constant | Function |
+|--------|----------|----------|
+| A | `SWITCH_A` | Switch to clock screen |
+| B | `SWITCH_B` | Switch to weather screen |
+| C (hold 3s) | `SWITCH_C` | Reset to AP mode |
+| Brightness ± | `SWITCH_BRIGHTNESS_UP/DOWN` | Adjust brightness |
 
+## Common Tasks
+
+### Adding a New Screen
+1. Add method to `GUDisplay` class
+2. Add screen constant to `gu_main.py`
+3. Update `_show_current_screen()` switch
+4. Add button handler if needed
+
+### Modifying Weather Location
+```python
+self._weather = WeatherAPI(latitude=YOUR_LAT, longitude=YOUR_LON)
 ```
-<type>(<scope>): <description>
+
+### Changing NTP Timezone
+In `gu_main.py`, modify the UTC offset:
+```python
+hour = (hour + 8) % 24  # Change 8 to your offset
 ```
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
-## Versioning
+## Code Reference
 
-Semantic Versioning with manual `CHANGELOG.md` updates. Release tags use annotated format: `git tag -a vX.Y.Z -m "Release vX.Y.Z: [summary]"`
-
-## Project Structure
-
-```
-src/                    # Library code (deployed to Pico)
-  templates/            # HTML for provisioning UI
-examples/               # Integration examples
-```
+See `CODE_REFERENCE.md` for complete Galactic Unicorn API documentation including:
+- PicoGraphics drawing functions
+- Color pen creation
+- Text rendering and scrolling
+- Audio/synthesizer API
+- HSV color conversion

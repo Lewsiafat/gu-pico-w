@@ -68,7 +68,7 @@ Copy the `src/` folder contents to your Pico W:
 ### Display Screens
 
 **Clock Screen**
-- Shows current time (HH:MM:SS) and date (MM/DD)
+- Shows current time (HH:MM) with blinking dot separator and date (MM/DD)
 - Time is synced via NTP (UTC+8 default)
 
 **Weather Screen**

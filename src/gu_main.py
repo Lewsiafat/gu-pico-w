@@ -138,18 +138,34 @@ class GUApplication:
         year, month, day, _, hour, minute, second, _ = rtc.datetime()
         hour = (hour + 8) % 24  # UTC+8
 
-        time_str = "{:02}:{:02}:{:02}".format(hour, minute, second)
+        time_str = "{:02}:{:02}".format(hour, minute)
         date_str = "{}/{}".format(month, day)
-        display_str = "{}{}".format(time_str, date_str)
 
         g = self._display._graphics
         g.set_pen(self._display._black)
         g.clear()
 
-        text_w = g.measure_text(display_str, 1)
-        text_x = (53 - text_w) // 2
-        self._display._draw_outlined_text(display_str, text_x, 2,
-                                          self._display._cyan, 
+        # Calculate fixed positions for stable layout
+        time_w = g.measure_text(time_str, 1)
+        dot_w = g.measure_text(".", 1)
+        date_w = g.measure_text(date_str, 1)
+        total_w = time_w + dot_w + date_w
+        start_x = (53 - total_w) // 2
+
+        # Draw time
+        self._display._draw_outlined_text(time_str, start_x, 2,
+                                          self._display._cyan,
+                                          self._display._black, 1)
+        # Draw blinking dot at fixed position
+        dot_x = start_x + time_w
+        if second % 2 == 0:
+            self._display._draw_outlined_text(".", dot_x, 2,
+                                              self._display._cyan,
+                                              self._display._black, 1)
+        # Draw date at fixed position
+        date_x = dot_x + dot_w
+        self._display._draw_outlined_text(date_str, date_x, 2,
+                                          self._display._cyan,
                                           self._display._black, 1)
         self._display._gu.update(g)
 
@@ -169,20 +185,24 @@ class GUApplication:
             self._weather_data["low"]
         )
 
-        # Row 1: temp + status
-        self._display._draw_outlined_text(temp_str, 1, 0,
+        # Row 1: temp + status centered together
+        temp_w = g.measure_text(temp_str, 1)
+        status_w = g.measure_text(status, 1)
+        gap = 2  # gap between temp and status
+        total_w = temp_w + gap + status_w
+        start_x = (53 - total_w) // 2
+        
+        self._display._draw_outlined_text(temp_str, start_x, -1,
                                           self._display._yellow,
                                           self._display._black, 1)
-        status_w = g.measure_text(status, 1)
-        status_x = (53 - status_w) // 2
-        self._display._draw_outlined_text(status, status_x, 0,
+        self._display._draw_outlined_text(status, start_x + temp_w + gap, -1,
                                           self._display._white,
                                           self._display._black, 1)
 
-        # Row 2: hi/lo centered
+        # Row 2: hi/lo centered (moved up 1 pixel)
         hilo_w = g.measure_text(hilo_str, 1)
         hilo_x = (53 - hilo_w) // 2
-        self._display._draw_outlined_text(hilo_str, hilo_x, 6,
+        self._display._draw_outlined_text(hilo_str, hilo_x, 5,
                                           self._display._green,
                                           self._display._black, 1)
 

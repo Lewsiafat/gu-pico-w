@@ -10,7 +10,7 @@ This file provides guidance for AI assistants and developers working on this cod
 
 ```
 src/
-├── main.py              # Basic entry point (for standalone WiFi testing)
+├── main.py              # Auto-boot entry point (launches gu_main with startup delay)
 ├── gu_main.py           # Full application entry point with display
 ├── wifi_manager.py      # WiFi state machine (core networking)
 ├── gu_display.py        # Display driver (scrolling text, status screens)

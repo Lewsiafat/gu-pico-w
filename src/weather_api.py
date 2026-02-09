@@ -11,7 +11,7 @@ WEATHER_CODES = {
     0: "Clear",
     1: "Sunny",
     2: "Cloudy",
-    3: "Overcast",
+    3: "Ovrcast",  # Shortened to fit display width
     45: "Fog",
     48: "Fog",
     51: "Drizzle",

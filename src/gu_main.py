@@ -195,7 +195,8 @@ class GUApplication:
         g.clear()
 
         temp_str = "{:.0f}C".format(self._weather_data["temp"])
-        status = self._weather_data["status"]
+        # Truncate status to max 7 chars to fit display width (53px)
+        status = self._weather_data["status"][:7]
         hilo_str = "H{:.0f} L{:.0f}".format(
             self._weather_data["high"], 
             self._weather_data["low"]

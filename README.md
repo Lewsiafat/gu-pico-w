@@ -132,10 +132,14 @@ gu-pico/
 │   ├── gu_display.py      # Display driver
 │   ├── weather_api.py     # Weather API client
 │   └── ...
+├── .agent/                # AI assistant tools
+│   ├── skills/            # Reusable skill packages
+│   └── workflows/         # Step-by-step workflows
 ├── examples/              # Example scripts
 ├── ref_source/            # Reference materials
 ├── CODE_REFERENCE.md      # Galactic Unicorn API reference
 ├── CLAUDE.md              # Developer reference
+├── RELEASE_NOTES.md       # Version changelog
 └── README.md              # This file
 ```
 

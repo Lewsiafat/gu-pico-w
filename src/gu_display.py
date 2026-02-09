@@ -264,8 +264,9 @@ class GUDisplay:
         """
         self._running = True
 
-        # Format strings
+        # Format strings (truncate status to 7 chars max)
         temp_str = "{:.0f}C".format(temp)
+        status = status[:7]  # Prevent display overflow
         hilo_str = "H{:.0f} L{:.0f}".format(high, low)
 
         # Clear display

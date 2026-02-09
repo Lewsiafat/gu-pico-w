@@ -75,6 +75,7 @@ Copy the `src/` folder contents to your Pico W:
 - Current temperature
 - Weather condition (Sunny, Cloudy, Rain, etc.)
 - Today's high/low temperatures
+- Auto-refreshes every 10 minutes
 
 ## Configuration
 

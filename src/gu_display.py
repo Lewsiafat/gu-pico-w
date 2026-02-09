@@ -272,25 +272,27 @@ class GUDisplay:
         self._graphics.set_pen(self._black)
         self._graphics.clear()
 
-        # Layout: temp on left, status center, hi/lo right
-        # Row 1: temp + status
-        self._draw_outlined_text(temp_str, 1, 0, 
-                                 self._yellow, self._black, 1)
-
+        # Row 1: temp + status centered together (moved up 1 pixel)
+        temp_w = self._graphics.measure_text(temp_str, 1)
         status_w = self._graphics.measure_text(status, 1)
-        status_x = (WIDTH - status_w) // 2
-        self._draw_outlined_text(status, status_x, 0, 
+        gap = 2
+        total_w = temp_w + gap + status_w
+        start_x = (WIDTH - total_w) // 2
+        
+        self._draw_outlined_text(temp_str, start_x, -1, 
+                                 self._yellow, self._black, 1)
+        self._draw_outlined_text(status, start_x + temp_w + gap, -1, 
                                  self._white, self._black, 1)
 
-        # Row 2: hi/lo centered
+        # Row 2: hi/lo centered (moved up 1 pixel)
         hilo_w = self._graphics.measure_text(hilo_str, 1)
         hilo_x = (WIDTH - hilo_w) // 2
-        self._draw_outlined_text(hilo_str, hilo_x, 6, 
+        self._draw_outlined_text(hilo_str, hilo_x, 5, 
                                  self._green, self._black, 1)
 
         self._gu.update(self._graphics)
 
-        # Keep display on until stopped
+        # Keep display on until stopped (with timeout protection)
         while self._running:
             await asyncio.sleep(1)
 

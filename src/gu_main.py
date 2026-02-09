@@ -6,6 +6,7 @@ import uasyncio as asyncio
 import ntptime
 import machine
 import time
+import gc
 from wifi_manager import WiFiManager
 from gu_display import GUDisplay
 from weather_api import WeatherAPI
@@ -111,25 +112,40 @@ class GUApplication:
     async def _auto_rotate_screens(self):
         """Auto-rotate between clock and weather every 10 seconds."""
         ROTATE_INTERVAL = 10  # seconds
+        cycle_count = 0
 
         while True:
-            # Show clock for 10 seconds
-            self._current_screen = SCREEN_CLOCK
-            self._display.stop()
-            elapsed = 0
-            while elapsed < ROTATE_INTERVAL:
-                # Update clock display
-                await self._show_clock_frame()
-                await asyncio.sleep(1)
-                elapsed += 1
-
-            # Show weather for 10 seconds
-            self._current_screen = SCREEN_WEATHER
-            if self._weather_data:
+            try:
+                # Show clock for 10 seconds
+                self._current_screen = SCREEN_CLOCK
                 self._display.stop()
-                self._graphics_clear()
-                await self._show_weather_frame()
-                await asyncio.sleep(ROTATE_INTERVAL)
+                elapsed = 0
+                while elapsed < ROTATE_INTERVAL:
+                    # Update clock display
+                    await self._show_clock_frame()
+                    await asyncio.sleep(1)
+                    elapsed += 1
+
+                # Show weather for 10 seconds (with yielding to prevent freeze)
+                self._current_screen = SCREEN_WEATHER
+                if self._weather_data:
+                    self._display.stop()
+                    self._graphics_clear()
+                    await self._show_weather_frame()
+                    # Use incremental sleep instead of one long sleep
+                    for _ in range(ROTATE_INTERVAL):
+                        await asyncio.sleep(1)
+
+                # Periodic garbage collection every 3 cycles (~1 minute)
+                cycle_count += 1
+                if cycle_count >= 3:
+                    gc.collect()
+                    cycle_count = 0
+                    
+            except Exception as e:
+                self._log.error(f"Rotation error: {e}")
+                gc.collect()
+                await asyncio.sleep(1)
 
     async def _show_clock_frame(self):
         """Show one frame of clock (called repeatedly)."""

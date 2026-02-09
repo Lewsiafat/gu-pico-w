@@ -48,6 +48,7 @@ src/
 - Uses Open-Meteo API (free, no key required)
 - Default location: Taipei (25.0330, 121.5654)
 - Returns: `{temp, status, high, low, code}`
+- **Stability**: 10-second HTTP timeout, automatic garbage collection
 
 ## Development Patterns
 

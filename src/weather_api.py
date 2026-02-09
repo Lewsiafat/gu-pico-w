@@ -98,21 +98,36 @@ class WeatherAPI:
         Returns:
             dict: {temp, status, high, low, code}
         """
+        import gc
+        response = None
         try:
             url = self._build_url()
             self._log.debug(f"Fetching: {url}")
 
-            # Synchronous request (urequests doesn't support async)
-            response = urequests.get(url)
+            # Synchronous request with timeout to prevent hanging
+            response = urequests.get(url, timeout=10)
             data = response.json()
             response.close()
+            response = None
 
             self._cache = self._parse_response(data)
             self._log.info(f"Weather: {self._cache['temp']}°C, {self._cache['status']}")
+            
+            # Free memory
+            del data
+            gc.collect()
+            
             return self._cache
 
         except Exception as e:
             self._log.error(f"Fetch failed: {e}")
+            # Ensure response is closed on error
+            if response:
+                try:
+                    response.close()
+                except:
+                    pass
+            gc.collect()
             # Return cached data or defaults
             if self._cache:
                 return self._cache
